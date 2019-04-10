@@ -7,22 +7,25 @@ const database = require("../config/database");
 // Register new user
 router.post("/register", (req, res) => {
   const { email, username, password, passwordConfirm } = req.body;
-  const errors = [];
+  const alerts = [];
 
   // Check required fields
   if (!email || !username || !password || !passwordConfirm) {
-    errors.push("Missing credentials.");
+    alerts.push({ success: false, message: "Missing credentials." });
   }
 
   // Check if password is valid
   const validRegex = /(?=.*\d)(?=.*[a-z]).{8,}/g;
   if (!password.match(validRegex)) {
-    errors.push("Password is missing requirements.");
+    alerts.push({
+      success: false,
+      message: "Password is missing requirements."
+    });
   }
 
   // Check if passwords match
   if (password !== passwordConfirm) {
-    errors.push("Passwords do not match.");
+    alerts.push({ success: false, message: "Passwords do not match." });
   }
 
   //   Check if username or e-mail already exist
@@ -30,15 +33,15 @@ router.post("/register", (req, res) => {
     .select()
     .then(userData => {
       if (userData.some(user => user.username === username)) {
-        errors.push("Username already in use.");
+        alerts.push({ success: false, message: "Username already in use." });
       }
       if (userData.some(user => user.email === email)) {
-        errors.push("Email already in use.");
+        alerts.push({ success: false, message: "Email already in use." });
       }
 
       // Return errors if any
-      if (errors.length > 0) {
-        res.status(400).json({ ...req.body, errors });
+      if (alerts.length > 0) {
+        res.status(400).json({ alerts });
       } else {
         // Generate salt and then hash password using it
         bcrypt.genSalt(10, (error, salt) => {
@@ -61,15 +64,20 @@ router.post("/register", (req, res) => {
                     })
                     .catch(error => {
                       console.log("ERROR INSERTING INTO USERS", error);
-                      errors.push(
-                        "Error registering user. Please try again later"
-                      );
-                      res.status(500).json({ ...req.body, errors });
+                      alerts.push({
+                        success: false,
+                        message:
+                          "Error registering user. Please try again later"
+                      });
+                      res.status(500).json({ alerts });
                     });
                 })
                 .then(() => {
                   trx.commit;
-                  res.status(200).json({ message: "Registration successful!" });
+                  res.status(200).json({
+                    success: true,
+                    message: "Registration successful!"
+                  });
                 })
                 .catch(error => {
                   trx.rollback;
