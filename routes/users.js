@@ -55,14 +55,16 @@ router.post("/register", (req, res) => {
                 .then(() => {
                   return trx("users")
                     .insert({
-                      id: 40,
                       username: username,
                       email: email,
                       joined: new Date()
                     })
                     .catch(error => {
                       console.log("ERROR INSERTING INTO USERS", error);
-                      res.status(400).json({ message: "Unable to register." });
+                      errors.push(
+                        "Error registering user. Please try again later"
+                      );
+                      res.status(500).json({ ...req.body, errors });
                     });
                 })
                 .then(() => {
