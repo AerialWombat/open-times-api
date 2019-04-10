@@ -40,29 +40,39 @@ router.post("/register", (req, res) => {
       if (errors.length > 0) {
         res.status(400).json({ ...req.body, errors });
       } else {
-        // Add user data to database
-        database("users")
-          .insert({
-            username: username,
-            email: email,
-            joined: new Date()
-          })
-          .catch(error => console.log(error));
-
-        // Add user login data to database
+        // Generate salt and then hash password using it
         bcrypt.genSalt(10, (error, salt) => {
           bcrypt.hash(password, salt, null, (error, hash) => {
             if (error) throw error;
 
-            database("login")
-              .insert({
-                email: email,
-                hash: hash
-              })
-              .then(
-                res.status(200).json({ message: "Registration successful!" })
-              )
-              .catch(error => console.log(error));
+            // Transaction to insert login info and then user info
+            database.transaction(trx => {
+              return trx("login")
+                .insert({
+                  email: email,
+                  hash: hash
+                })
+                .then(() => {
+                  return trx("users")
+                    .insert({
+                      id: 40,
+                      username: username,
+                      email: email,
+                      joined: new Date()
+                    })
+                    .catch(error => {
+                      console.log("ERROR INSERTING INTO USERS", error);
+                      res.status(400).json({ message: "Unable to register." });
+                    });
+                })
+                .then(() => {
+                  trx.commit;
+                  res.status(200).json({ message: "Registration successful!" });
+                })
+                .catch(error => {
+                  trx.rollback;
+                });
+            });
           });
         });
       }
