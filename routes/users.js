@@ -1,8 +1,12 @@
 const bcrypt = require("bcrypt-nodejs");
 const express = require("express");
+const jwt = require("jsonwebtoken");
 const router = express.Router();
 
 const database = require("../config/database");
+
+// Very secret secret
+const secret = "Potato";
 
 // Register new user
 router.post("/register", (req, res) => {
@@ -39,7 +43,7 @@ router.post("/register", (req, res) => {
         alerts.push({ success: false, message: "Email already in use." });
       }
 
-      // Return errors if any
+      // Return alerts if any
       if (alerts.length > 0) {
         res.status(400).json({ alerts });
       } else {
@@ -89,5 +93,54 @@ router.post("/register", (req, res) => {
     })
     .catch(error => console.log(error));
 });
+
+// Authenticate user, return JWT, and redirect to dashboard
+router.post("/login", (req, res) => {
+  const { email, password } = req.body;
+  const alerts = [];
+
+  // Select user login records
+  database("login")
+    .select()
+    .where("email", "=", email)
+    .then(data => {
+      // Match email
+      if (data.length <= 0) {
+        res
+          .status(400)
+          .json({ success: false, message: "Incorrect email or password." });
+      } else {
+        // Match password
+        bcrypt.compare(password, data[0].hash, (error, isMatch) => {
+          if (error) {
+            res.status(500).json({
+              success: false,
+              message: "Internal error. Please try again."
+            });
+          }
+
+          if (!isMatch) {
+            res.status(400).json({
+              success: false,
+              message: "Incorrect email or password."
+            });
+          }
+          // Issue JWT
+          else {
+            const payload = { email };
+            const token = jwt.sign(payload, secret, {
+              expiresIn: "1h"
+            });
+            res
+              .status(200)
+              .cookie("token", token, { httpOnly: true })
+              .json({ success: true, message: "Successful login." });
+          }
+        });
+      }
+    });
+});
+
+// Clear login session, remove req,user, and redirect to main page
 
 module.exports = router;
