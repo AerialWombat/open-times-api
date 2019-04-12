@@ -15,7 +15,6 @@ const ensureAuth = (req, res, next) => {
     res
       .status(400)
       .json({ success: false, message: 'Unauthorized. No token provided' });
-    console.log('No token!', token);
   } else {
     jwt.verify(token, secret, (error, decoded) => {
       if (error) {
@@ -23,7 +22,6 @@ const ensureAuth = (req, res, next) => {
           .status(400)
           .json({ success: false, message: 'Unauthorized. Invalid Token.' });
       } else {
-        console.log('Token!');
         req.email = decoded.email;
         next();
       }
