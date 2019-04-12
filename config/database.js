@@ -1,10 +1,10 @@
-const knex = require("knex");
+const knex = require('knex');
 
 const database = knex({
-  client: "pg",
+  client: 'pg',
   connection: {
-    host: "127.0.0.1",
-    database: "open-times"
+    host: '127.0.0.1',
+    database: 'open-times'
   }
 });
 
