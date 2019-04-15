@@ -1,12 +1,10 @@
 const bcrypt = require('bcrypt-nodejs');
 const express = require('express');
-const jwt = require('jsonwebtoken');
+const passport = require('passport');
+
 const router = express.Router();
 
 const database = require('../config/database');
-
-// Very secret secret
-const secret = 'Potato';
 
 // Register new user
 router.post('/register', (req, res) => {
@@ -50,43 +48,40 @@ router.post('/register', (req, res) => {
         // Generate salt and then hash password using it
         bcrypt.genSalt(10, (error, salt) => {
           bcrypt.hash(password, salt, null, (error, hash) => {
-            if (error) throw error;
+            if (error) {
+              res.status(500).json({
+                alerts: [
+                  {
+                    success: false,
+                    message: 'Internal error. Please try again.'
+                  }
+                ]
+              });
+            }
 
-            // Transaction to insert login info and then user info
-            database.transaction(trx => {
-              return trx('login')
-                .insert({
-                  email: email,
-                  hash: hash
-                })
-                .then(() => {
-                  return trx('users')
-                    .insert({
-                      username: username,
-                      email: email,
-                      joined: new Date()
-                    })
-                    .catch(error => {
-                      console.log('ERROR INSERTING INTO USERS', error);
-                      alerts.push({
-                        success: false,
-                        message:
-                          'Error registering user. Please try again later'
-                      });
-                      res.status(500).json({ alerts });
-                    });
-                })
-                .then(() => {
-                  trx.commit;
-                  res.status(200).json({
-                    success: true,
-                    message: 'Registration successful!'
-                  });
-                })
-                .catch(error => {
-                  trx.rollback;
+            // Insert new user info
+            database('users')
+              .insert({
+                email: email,
+                password: hash,
+                username: username,
+                email: email,
+                joined: new Date()
+              })
+              .then(() => {
+                res.status(200).json({
+                  success: true,
+                  message: 'Registration successful!'
                 });
-            });
+              })
+              .catch(error => {
+                console.log('ERROR INSERTING INTO USERS', error);
+                alerts.push({
+                  success: false,
+                  message: 'Error registering user. Please try again later'
+                });
+                res.status(500).json({ alerts });
+              });
           });
         });
       }
@@ -94,65 +89,49 @@ router.post('/register', (req, res) => {
     .catch(error => console.log(error));
 });
 
-// Authenticate user, return JWT, and redirect to dashboard
-router.post('/login', (req, res) => {
-  const { email, password } = req.body;
-
-  // Select user login records
-  database('login')
-    .select()
-    .where('email', '=', email)
-    .then(data => {
-      // Match email
-      if (data.length <= 0) {
-        res.status(400).json({
-          alerts: [
-            {
-              success: false,
-              message: 'Incorrect email or password.'
-            }
-          ]
-        });
-      } else {
-        // Match password
-        bcrypt.compare(password, data[0].hash, (error, isMatch) => {
-          if (error) {
-            res.status(500).json({
-              alerts: [
-                {
-                  success: false,
-                  message: 'Internal error. Please try again.'
-                }
-              ]
-            });
+router.post('/login', (req, res, next) => {
+  passport.authenticate('local', (error, user, info) => {
+    if (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Internal error. Please try again.'
+      });
+    } else if (!user) {
+      // If no user is returned from authentication
+      res.status(400).json({
+        alerts: [
+          {
+            success: false,
+            message: 'Incorrect email or password.'
           }
-
-          if (!isMatch) {
-            res.status(400).json({
-              alerts: [
-                {
-                  success: false,
-                  message: 'Incorrect email or password.'
-                }
-              ]
-            });
+        ]
+      });
+    } else {
+      // On successful authentication
+      req.login(user, error => {
+        if (error) {
+          return next(error);
+        }
+      });
+      res.status(200).json({
+        alerts: [
+          {
+            success: true,
+            message: 'Login successful!'
           }
-          // Issue JWT
-          else {
-            const payload = { email };
-            const token = jwt.sign(payload, secret, {
-              expiresIn: '1h'
-            });
-            res
-              .status(200)
-              .cookie('token', token, { httpOnly: true })
-              .json({ success: true, message: 'Successful login.' });
-          }
-        });
-      }
-    });
+        ]
+      });
+    }
+  })(req, res, next);
 });
 
-// Clear login session, remove req,user, and redirect to main page
+// Logout route
+router.get('/logout', (req, res) => {
+  req.logout();
+  res.status(200).json({
+    success: true,
+    message: 'Successful log out.'
+  });
+});
 
 module.exports = router;

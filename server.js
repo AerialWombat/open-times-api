@@ -1,10 +1,16 @@
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
+const dotenv = require('dotenv').config();
 const express = require('express');
+const passport = require('passport');
+const session = require('express-session');
 
 const ensureAuth = require('./config/auth');
 
 const app = express();
+
+// Passport config
+require('./config/passport')(passport);
 
 // CORS and Bodyparser
 app.use(
@@ -17,11 +23,25 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Express session
+app.use(
+  session({
+    secret: process.env.SECRET_KEY,
+    resave: true,
+    saveUninitialized: true
+  })
+);
+
+//Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
+
 // Routes
 app.use('/api/users', require('./routes/users.js'));
 
-app.get('/api/checkToken', ensureAuth, (req, res) => {
-  res.status(200).json('Woo');
+// Ensure authentication route
+app.get('/api/checkAuth', ensureAuth, (req, res) => {
+  res.status(200).json('User is authenticated.');
 });
 
 const PORT = process.env.PORT || 5000;
