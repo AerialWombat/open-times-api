@@ -11,7 +11,7 @@ router.post('/register', (req, res) => {
   const { email, username, password, passwordConfirm } = req.body;
   const alerts = [];
 
-  // Check required fields
+  // Check if required fields exist
   if (!email || !username || !password || !passwordConfirm) {
     alerts.push({ success: false, message: 'Missing credentials.' });
   }
@@ -30,7 +30,7 @@ router.post('/register', (req, res) => {
     alerts.push({ success: false, message: 'Passwords do not match.' });
   }
 
-  //   Check if username or e-mail already exist
+  // Check if username or e-mail already exist
   database('users')
     .select()
     .then(userData => {
@@ -41,7 +41,7 @@ router.post('/register', (req, res) => {
         alerts.push({ success: false, message: 'Email already in use.' });
       }
 
-      // Return alerts if any
+      // Send unsuccessful with response alerts if any
       if (alerts.length > 0) {
         res.status(400).json({ alerts });
       } else {
@@ -75,7 +75,7 @@ router.post('/register', (req, res) => {
                 });
               })
               .catch(error => {
-                console.log('ERROR INSERTING INTO USERS', error);
+                console.log('Error inserting into USERS.', error);
                 alerts.push({
                   success: false,
                   message: 'Error registering user. Please try again later'
@@ -89,12 +89,17 @@ router.post('/register', (req, res) => {
     .catch(error => console.log(error));
 });
 
+// Authenticate user for login
 router.post('/login', (req, res, next) => {
   passport.authenticate('local', (error, user, info) => {
     if (error) {
       res.status(500).json({
-        success: false,
-        message: 'Internal error. Please try again.'
+        alerts: [
+          {
+            success: false,
+            message: 'Internal error. Please try again.'
+          }
+        ]
       });
     } else if (!user) {
       // If no user is returned from authentication
