@@ -1,6 +1,6 @@
+require('dotenv').config();
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
-const dotenv = require('dotenv').config();
 const express = require('express');
 const passport = require('passport');
 const session = require('express-session');
@@ -47,5 +47,5 @@ app.get('/api/checkAuth', ensureAuth, (req, res) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log('Open Times API running...');
+  console.log('Login/Registration API running...');
 });
