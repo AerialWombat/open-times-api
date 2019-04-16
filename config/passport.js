@@ -13,18 +13,14 @@ module.exports = passport => {
         .then(users => {
           // Match email
           if (users.length <= 0) {
-            console.log('Email did not match.');
-            return done(null, false, {
-              message: 'Incorrect email or password.'
-            });
+            return done(null, false);
           } else {
             // Match password
             bcrypt.compare(password, users[0].password, (error, isMatch) => {
+              if (error) throw error;
+
               if (!isMatch) {
-                console.log('Password did not match.');
-                return done(null, false, {
-                  message: 'Incorrect email or password.'
-                });
+                return done(null, false);
               } else {
                 // Return user on password match
                 return done(null, users[0]);
