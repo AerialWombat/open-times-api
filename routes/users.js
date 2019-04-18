@@ -1,7 +1,6 @@
 const bcrypt = require('bcrypt-nodejs');
 const express = require('express');
 const passport = require('passport');
-
 const router = express.Router();
 
 const database = require('../config/database');
@@ -69,10 +68,7 @@ router.post('/register', (req, res) => {
                 joined: new Date()
               })
               .then(() => {
-                res.status(200).json({
-                  success: true,
-                  message: 'Registration successful!'
-                });
+                res.status(200).send('Successful registration!');
               })
               .catch(error => {
                 console.log('Error inserting into USERS.', error);
@@ -128,6 +124,205 @@ router.post('/login', (req, res, next) => {
       });
     }
   })(req, res, next);
+});
+
+// Change password route
+router.put('/changepassword', (req, res) => {
+  const { currentPassword, newPassword, newPasswordConfirm } = req.body;
+  let id;
+  const alerts = [];
+
+  // Check if required fields exist
+  if (!currentPassword || !newPassword || !newPasswordConfirm) {
+    alerts.push({ success: false, message: 'Missing fields.' });
+  }
+
+  // Check if new password is valid
+  const validRegex = /(?=.*\d)(?=.*[a-z]).{8,}/g;
+  if (!newPassword.match(validRegex)) {
+    alerts.push({
+      success: false,
+      message: 'Password is missing requirements.'
+    });
+  }
+
+  // Check if new passwords match
+  if (newPassword !== newPasswordConfirm) {
+    alerts.push({ success: false, message: 'Passwords do not match.' });
+  }
+
+  // Check if logged in/authenticated
+  if (!req.session.passport) {
+    alerts.push({ success: false, message: 'You are not logged in.' });
+  } else {
+    id = req.session.passport.user;
+  }
+
+  // Send unsuccessful with response alerts if any
+  if (alerts.length > 0) {
+    res.status(400).json({ alerts });
+  } else {
+    // Select matching user id from database
+    database('users')
+      .select()
+      .where('id', '=', id)
+      .then(users => {
+        // Match user
+        if (users.length <= 0) {
+          res.status(400).json({
+            alerts: [
+              {
+                success: false,
+                message: 'User does not exist.'
+              }
+            ]
+          });
+        } else {
+          // Match password
+          bcrypt.compare(
+            currentPassword,
+            users[0].password,
+            (error, isMatch) => {
+              if (error) {
+                res.status(500).json({
+                  alerts: [
+                    {
+                      success: false,
+                      message: 'Internal error. Please try again.'
+                    }
+                  ]
+                });
+              }
+              if (!isMatch) {
+                res.status(400).json({
+                  alerts: [
+                    {
+                      success: false,
+                      message: 'Password is incorrect.'
+                    }
+                  ]
+                });
+              } else {
+                // On match, hash new password
+                bcrypt.genSalt(10, (error, salt) => {
+                  bcrypt.hash(newPassword, salt, null, (error, hash) => {
+                    if (error) {
+                      res.status(500).json({
+                        alerts: [
+                          {
+                            success: false,
+                            message: 'Internal error. Please try again.'
+                          }
+                        ]
+                      });
+                    }
+
+                    // Update database with new, hashed password
+                    database('users')
+                      .where('id', '=', id)
+                      .update({
+                        password: hash
+                      })
+                      .then(() => {
+                        res.status(200).json({
+                          alerts: [
+                            {
+                              success: true,
+                              message: 'Password successfully changed!'
+                            }
+                          ]
+                        });
+                      })
+                      .catch(error => {
+                        console.log('Error updating password in USERS.', error);
+                        alerts.push({
+                          success: false,
+                          message:
+                            'Error changing password. Please try again later'
+                        });
+                        res.status(500).json({ alerts });
+                      });
+                  });
+                });
+              }
+            }
+          );
+        }
+      });
+  }
+});
+
+// Delete account route
+router.delete('/deleteaccount', (req, res) => {
+  const { deletePassword } = req.body;
+  let id;
+  const alerts = [];
+
+  // Check if logged in/authenticated
+  if (!req.session.passport) {
+    alerts.push({ success: false, message: 'You are not logged in.' });
+  } else {
+    id = req.session.passport.user;
+  }
+
+  // Select matching user id from database
+  database('users')
+    .select()
+    .where('id', '=', id)
+    .then(users => {
+      // Match user
+      if (users.length <= 0) {
+        res.status(400).json({
+          alerts: [
+            {
+              success: false,
+              message: 'User does not exist.'
+            }
+          ]
+        });
+      } else {
+        bcrypt.compare(deletePassword, users[0].password, (error, isMatch) => {
+          if (error) {
+            res.status(500).json({
+              alerts: [
+                {
+                  success: false,
+                  message: 'Internal error. Please try again.'
+                }
+              ]
+            });
+          }
+          if (!isMatch) {
+            res.status(400).json({
+              alerts: [
+                {
+                  success: false,
+                  message: 'Password is incorrect.'
+                }
+              ]
+            });
+          } else {
+            // On match, delete user record and log them out
+            // TODO: Will need to delete related data as well
+            database('users')
+              .where('id', '=', id)
+              .del()
+              .then(() => {
+                req.logout();
+                res.status(200).send('Account deleted.');
+              })
+              .catch(error => {
+                console.log('Error deleting user in USERS.', error);
+                alerts.push({
+                  success: false,
+                  message: 'Error deleting account. Please try again later'
+                });
+                res.status(500).json({ alerts });
+              });
+          }
+        });
+      }
+    });
 });
 
 // Logout route
