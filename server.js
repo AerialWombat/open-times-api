@@ -38,6 +38,7 @@ app.use(passport.session());
 
 // Routes
 app.use('/api/users', require('./routes/users.js'));
+app.use('/api/groups', require('./routes/groups.js'));
 
 // Ensure authentication route
 app.get('/api/checkAuth', ensureAuth, (req, res) => {
