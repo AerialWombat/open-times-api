@@ -127,7 +127,7 @@ router.post('/login', (req, res, next) => {
 });
 
 // Change password route
-router.put('/changepassword', (req, res) => {
+router.put('/change-password', (req, res) => {
   const { currentPassword, newPassword, newPasswordConfirm } = req.body;
   let id;
   const alerts = [];
@@ -253,7 +253,7 @@ router.put('/changepassword', (req, res) => {
 });
 
 // Delete account route
-router.delete('/deleteaccount', (req, res) => {
+router.delete('/delete-account', (req, res) => {
   const { deletePassword } = req.body;
   let id;
   const alerts = [];
