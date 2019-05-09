@@ -71,4 +71,51 @@ router.post('/create', (req, res) => {
   });
 });
 
+router.post('/set-schedule', (req, res) => {
+  const { UUID, schedule } = req.body;
+  const { username } = req.user;
+
+  database('schedules')
+    .where({
+      username: username,
+      group_id: UUID
+    })
+    .select()
+    .then(scheduleRecords => {
+      if (scheduleRecords.length <= 0) {
+        database('schedules')
+          .insert({
+            username: username,
+            group_id: UUID,
+            schedule: schedule
+          })
+          .then(() => {
+            res.status(200).send('Successfully set schedule!');
+          })
+          .catch(error => {
+            console.log('Error inserting into SCHEDULES.', error);
+            res.status(500).send('Error setting schedule.');
+          });
+      } else {
+        database('schedules')
+          .where({
+            username: username,
+            group_id: UUID
+          })
+          .update({
+            username: username,
+            group_id: UUID,
+            schedule: schedule
+          })
+          .then(() => {
+            res.status(200).send('Successfully updated schedule!');
+          })
+          .catch(error => {
+            console.log('Error updating SCHEDULES.', error);
+            res.status(500).send('Error updating schedule.');
+          });
+      }
+    });
+});
+
 module.exports = router;
