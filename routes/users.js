@@ -32,11 +32,11 @@ router.post('/register', (req, res) => {
   // Check if username or e-mail already exist
   database('users')
     .select()
-    .then(userData => {
-      if (userData.some(user => user.username === username)) {
+    .then(userRecords => {
+      if (userRecords.some(user => user.username === username)) {
         alerts.push({ success: false, message: 'Username already in use.' });
       }
-      if (userData.some(user => user.email === email)) {
+      if (userRecords.some(user => user.email === email)) {
         alerts.push({ success: false, message: 'Email already in use.' });
       }
 
