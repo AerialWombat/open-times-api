@@ -3,6 +3,7 @@ const router = express.Router();
 const uuidv4 = require('uuid/v4');
 
 const database = require('../config/database');
+const util = require('util');
 
 // Route that gets user's group data to display in dashboard view
 router.get('/dashboard', (req, res) => {
@@ -116,6 +117,58 @@ router.post('/set-schedule', (req, res) => {
           });
       }
     });
+});
+
+router.get('/view/:groupID', (req, res) => {
+  const { groupID } = req.params;
+  const combinedSchedule = [];
+
+  database('schedules')
+    .select('username', 'schedule')
+    .where({
+      group_id: groupID
+    })
+    .then(scheduleRecords => {
+      // Iterate through each hour block
+      for (let i = 0; i < 168; i++) {
+        let newTimeBlock = {
+          amountAvailable: 0,
+          membersAvailable: []
+        };
+        scheduleRecords.forEach(scheduleRecord => {
+          // Check if a user is available for corresponding time block, if so increment amount of members available
+          if (scheduleRecord.schedule[i] === 1) {
+            newTimeBlock.amountAvailable += 1;
+            // Check if member is already on membersAvailable list, if not, push them to the list
+            if (
+              !newTimeBlock.membersAvailable.includes(scheduleRecord.username)
+            ) {
+              newTimeBlock.membersAvailable.push(scheduleRecord.username);
+            }
+          }
+        });
+        // After looking at all schedules' corresponding hour blocks, push new combined schedule object
+        combinedSchedule.push(newTimeBlock);
+      }
+    })
+    .then(() => {
+      database('groups')
+        .select('name', 'location', 'description', 'members')
+        .where({
+          slug: groupID
+        })
+        .then(groupInfo => {
+          const { name: title, location, description, members } = groupInfo[0];
+          res.status(200).json({
+            title: title,
+            location: location,
+            description: description,
+            members: members,
+            combinedSchedule: combinedSchedule
+          });
+        });
+    })
+    .catch(error => console.log(`Error SELECTING group schedules. ${error}`));
 });
 
 module.exports = router;
