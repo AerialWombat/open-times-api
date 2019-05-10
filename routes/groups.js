@@ -3,7 +3,6 @@ const router = express.Router();
 const uuidv4 = require('uuid/v4');
 
 const database = require('../config/database');
-const util = require('util');
 
 // Route that gets user's group data to display in dashboard view
 router.get('/dashboard', (req, res) => {
