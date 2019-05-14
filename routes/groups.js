@@ -118,6 +118,25 @@ router.post('/set-schedule', (req, res) => {
     });
 });
 
+router.get('/info/:groupID', (req, res) => {
+  const { groupID } = req.params;
+
+  database('groups')
+    .select('name', 'location', 'description', 'members')
+    .where({
+      slug: groupID
+    })
+    .then(groupInfo => {
+      const { name: title, location, description, members } = groupInfo[0];
+      res.status(200).json({
+        title: title,
+        location: location,
+        description: description,
+        members: members
+      });
+    });
+});
+
 router.get('/view/:groupID', (req, res) => {
   const { groupID } = req.params;
   const combinedSchedule = [];
