@@ -165,7 +165,7 @@ router.put('/change-password', (req, res) => {
     // Select matching user id from database
     database('users')
       .select()
-      .where('id', '=', id)
+      .where({ id: id })
       .then(users => {
         // Match user
         if (users.length <= 0) {
@@ -219,10 +219,8 @@ router.put('/change-password', (req, res) => {
 
                     // Update database with new, hashed password
                     database('users')
-                      .where('id', '=', id)
-                      .update({
-                        password: hash
-                      })
+                      .update({ password: hash })
+                      .where({ id: id })
                       .then(() => {
                         res.status(200).json({
                           alerts: [
@@ -256,19 +254,23 @@ router.put('/change-password', (req, res) => {
 router.delete('/delete-account', (req, res) => {
   const { deletePassword } = req.body;
   let id;
+  let username;
+  let groups;
   const alerts = [];
 
   // Check if logged in/authenticated
-  if (!req.session.passport) {
+  if (!req.user) {
     alerts.push({ success: false, message: 'You are not logged in.' });
   } else {
-    id = req.session.passport.user;
+    id = req.user.id;
+    username = req.user.username;
+    groups = req.user.groups;
   }
 
   // Select matching user id from database
   database('users')
     .select()
-    .where('id', '=', id)
+    .where({ id: id })
     .then(users => {
       // Match user
       if (users.length <= 0) {
@@ -303,10 +305,42 @@ router.delete('/delete-account', (req, res) => {
             });
           } else {
             // On match, delete user record and log them out
-            // TODO: Will need to delete related data as well
-            database('users')
-              .where('id', '=', id)
-              .del()
+            database
+              .transaction(trx => {
+                return (
+                  trx('users')
+                    .where({ id: id })
+                    .del()
+                    // Delete user from group member lists
+                    .then(() => {
+                      return (
+                        trx('groups')
+                          .select('slug', 'members')
+                          .then(groupRecords => {
+                            groupRecords.forEach(group => {
+                              const { slug, members } = group;
+                              // Check if group's member list includes user
+                              if (members.includes(username)) {
+                                // Delete member from list and re-update list
+                                members.splice(members.indexOf(username), 1);
+                                return database('groups')
+                                  .update({ members: members })
+                                  .where({ slug: slug });
+                              }
+                            });
+                          })
+                          // Delete all schedule records for user
+                          .then(() => {
+                            return trx('schedules')
+                              .where({ username: username })
+                              .del();
+                          })
+                          .catch(trx.rollback)
+                      );
+                    })
+                    .catch(trx.rollback)
+                );
+              })
               .then(() => {
                 req.logout();
                 res.status(200).send('Account deleted.');
