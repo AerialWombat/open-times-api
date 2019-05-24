@@ -6,11 +6,11 @@ const database = require('../config/database');
 
 // Route that gets user's group data to display in dashboard view
 router.get('/dashboard', (req, res) => {
-  if (!req.user) {
+  const { username, groups } = req.user;
+
+  if (!groups) {
     res.status(200).send('Currently not in any groups!');
   } else {
-    const { username, groups } = req.user;
-
     // Iterates though user's groups and returns promise with all group data from database
     Promise.all(
       groups.map(group => {
