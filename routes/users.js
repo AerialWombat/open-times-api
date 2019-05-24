@@ -236,7 +236,7 @@ router.put('/change-password', (req, res) => {
                         alerts.push({
                           success: false,
                           message:
-                            'Error changing password. Please try again later'
+                            'Error changing password. Please try again later.'
                         });
                         res.status(500).json({ alerts });
                       });
