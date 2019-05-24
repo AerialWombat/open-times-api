@@ -74,7 +74,7 @@ router.post('/register', (req, res) => {
                 console.log('Error inserting into USERS.', error);
                 alerts.push({
                   success: false,
-                  message: 'Error registering user. Please try again later'
+                  message: 'Error registering user. Please try again later.'
                 });
                 res.status(500).json({ alerts });
               });
@@ -349,7 +349,7 @@ router.delete('/delete-account', (req, res) => {
                 console.log('Error deleting user in USERS.', error);
                 alerts.push({
                   success: false,
-                  message: 'Error deleting account. Please try again later'
+                  message: 'Error deleting account. Please try again later.'
                 });
                 res.status(500).json({ alerts });
               });
