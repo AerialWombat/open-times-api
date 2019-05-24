@@ -402,17 +402,85 @@ router.put('/remove-members/:groupID', (req, res) => {
     });
 });
 
-module.exports = router;
+router.delete('/:groupID', (req, res) => {
+  console.log('delete group reached');
+  const { groupID } = req.params;
+  const { username } = req.user;
 
-// database('users');
-// .select('username', 'groups')
-// .whereIn('username', membersToRemove)
-// .then(userRecords => {
-//   userRecords.forEach(userRecord => {
-//     const { username, groups } = userRecord;
-//     const newGroupList = groups.filter(group => group !== groupID);
-//     return database('users')
-//       .update({ groups: newGroupList })
-//       .where({ username: username });
-//   });
-// });
+  // Check that creator of group sent request
+  database('groups')
+    .select('creator')
+    .where({ slug: groupID })
+    .then(groupRecord => {
+      if (groupRecord[0].creator !== username) {
+        res.status(400).json({
+          alerts: [
+            {
+              success: false,
+              message: 'You are not the owner of this group.'
+            }
+          ]
+        });
+      } else {
+        console.log('is owner');
+        database
+          .transaction(trx => {
+            // Remove all schedules for group
+            return trx('schedules')
+              .where({ group_id: groupID })
+              .del()
+              .then(() => {
+                // Delete group record
+                return trx('groups')
+                  .where({ slug: groupID })
+                  .del()
+                  .returning('members')
+                  .then(data => {
+                    // Remove group from all users' group lists and update them
+                    database('users')
+                      .select('username', 'groups')
+                      .whereIn('username', data[0])
+                      .then(userRecords => {
+                        userRecords.forEach(userRecord => {
+                          const { username, groups } = userRecord;
+                          const newGroupList = groups.filter(
+                            group => group !== groupID
+                          );
+                          database('users')
+                            .update({ groups: newGroupList })
+                            .where({ username: username })
+                            .then(
+                              console.log(`Updated ${username}'s group list.`)
+                            );
+                        });
+                      });
+                  });
+              });
+          })
+          .then(() => {
+            res.status(200).json({
+              members: filteredMembers,
+              alerts: [
+                {
+                  success: true,
+                  message: 'Group successfully deleted!'
+                }
+              ]
+            });
+          })
+          .catch(error => {
+            console.log(error);
+            res.status(500).json({
+              alerts: [
+                {
+                  success: false,
+                  message: 'Error removing group. Please try again later.'
+                }
+              ]
+            });
+          });
+      }
+    });
+});
+
+module.exports = router;
