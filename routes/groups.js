@@ -6,28 +6,39 @@ const database = require('../config/database');
 
 // Route that gets user's group data to display in dashboard view
 router.get('/dashboard', (req, res) => {
-  const { groups } = req.user;
+  if (!req.user) {
+    res.status(200).send('Currently not in any groups!');
+  } else {
+    const { username, groups } = req.user;
 
-  // Iterates though user's groups and returns promise with all group data from database
-  Promise.all(
-    groups.map(group => {
-      return database('groups')
-        .select()
-        .where('slug', '=', group)
-        .then(data => {
-          return data[0];
+    // Iterates though user's groups and returns promise with all group data from database
+    Promise.all(
+      groups.map(group => {
+        return database('groups')
+          .select()
+          .where('slug', '=', group)
+          .then(data => {
+            if (data[0].creator === username) {
+              return { ...data[0], isOwner: true };
+            } else {
+              return { ...data[0], isOwner: false };
+            }
+          });
+      })
+    )
+      .then(response => res.status(200).json(response))
+      .catch(error => {
+        console.log('Error getting from GROUPS.', error);
+        res.status(500).json({
+          alerts: [
+            {
+              success: false,
+              message: 'Error retrieving groups. Please try again later.'
+            }
+          ]
         });
-    })
-  )
-    .then(response => res.status(200).json(response))
-    .catch(error => {
-      console.log('Error getting from GROUPS.', error);
-      alerts.push({
-        success: false,
-        message: 'Error retrieving groups. Please try again later'
       });
-      res.status(500).json({ alerts });
-    });
+  }
 });
 
 router.post('/create', (req, res) => {
@@ -102,7 +113,8 @@ router.post('/set-schedule', (req, res) => {
                     database.raw('array_append(groups, ?)', [UUID]),
                     ['groups']
                   )
-                  .where('username', '=', username);
+                  .where('username', '=', username)
+                  .then(`${username} has been added to group with ID ${UUID}`);
               })
               .catch(trx.rollback);
           });
@@ -171,12 +183,19 @@ router.get('/info/:groupID', (req, res) => {
   const { groupID } = req.params;
 
   database('groups')
-    .select('name', 'location', 'description', 'members')
+    .select('name', 'creator', 'location', 'description', 'members')
     .where({ slug: groupID })
     .then(groupInfo => {
-      const { name: title, location, description, members } = groupInfo[0];
+      const {
+        name: title,
+        creator,
+        location,
+        description,
+        members
+      } = groupInfo[0];
       res.status(200).json({
         title: title,
+        creator: creator,
         location: location,
         description: description,
         members: members
@@ -232,4 +251,168 @@ router.get('/view/:groupID', (req, res) => {
     .catch(error => console.log(`Error SELECTING group schedules. ${error}`));
 });
 
+router.put('/edit/:groupID', (req, res) => {
+  const { title, location, description } = req.body;
+  const { groupID } = req.params;
+  const { username } = req.user;
+
+  // Check for existing group title
+  if (!title) {
+    res.status(400).json({
+      alerts: [{ success: false, message: 'Cannot have empty group name.' }]
+    });
+  }
+
+  // Check that creator of group sent request
+  database('groups')
+    .select('creator')
+    .where({ slug: groupID })
+    .then(groupRecord => {
+      if (groupRecord[0].creator !== username) {
+        res.status(400).json({
+          alerts: [
+            {
+              success: false,
+              message: 'You are not the owner of this group.'
+            }
+          ]
+        });
+      } else {
+        // Update grup info
+        database('groups')
+          .update({
+            name: title,
+            location: location,
+            description: description
+          })
+          .where({ slug: groupID })
+          .then(() => {
+            res.status(200).json({
+              alerts: [
+                {
+                  success: true,
+                  message: 'Group info successfully changed!'
+                }
+              ]
+            });
+          })
+          .catch(() => {
+            res.status(500).json({
+              alerts: [
+                {
+                  success: false,
+                  message: 'Error changing group info. Please try again later.'
+                }
+              ]
+            });
+          });
+      }
+    });
+});
+
+router.put('/remove-members/:groupID', (req, res) => {
+  const { membersToRemove } = req.body;
+  const { groupID } = req.params;
+  const { username } = req.user;
+
+  // Check that creator of group sent request
+  database('groups')
+    .select('creator')
+    .where({ slug: groupID })
+    .then(groupRecord => {
+      if (groupRecord[0].creator !== username) {
+        res.status(400).json({
+          alerts: [
+            {
+              success: false,
+              message: 'You are not the owner of this group.'
+            }
+          ]
+        });
+      } else {
+        database('groups')
+          .select()
+          .where({ slug: groupID })
+          .then(groupRecord => {
+            // Create new list without removed members
+            const filteredMembers = groupRecord[0].members.filter(
+              member => !membersToRemove.includes(member)
+            );
+
+            database
+              .transaction(trx => {
+                // Update group's member list
+                return trx('groups')
+                  .update({ members: filteredMembers })
+                  .where({ slug: groupID })
+                  .then(() => {
+                    // Remove all schedules for removed members in group
+                    return trx('schedules')
+                      .where({ group_id: groupID })
+                      .whereIn('username', membersToRemove)
+                      .del()
+                      .then(() => {
+                        // Update removed members' group lists
+                        return trx('users')
+                          .select('username', 'groups')
+                          .whereIn('username', membersToRemove)
+                          .then(userRecords => {
+                            userRecords.forEach(userRecord => {
+                              const { username, groups } = userRecord;
+                              const newGroupList = groups.filter(
+                                group => group !== groupID
+                              );
+                              database('users')
+                                .update({ groups: newGroupList })
+                                .where({ username: username })
+                                .then(
+                                  console.log(
+                                    `Updated ${username}'s group list.`
+                                  )
+                                );
+                            });
+                          });
+                      });
+                  });
+              })
+              .then(() => {
+                res.status(200).json({
+                  members: filteredMembers,
+                  alerts: [
+                    {
+                      success: true,
+                      message: 'Members successfully removed!'
+                    }
+                  ]
+                });
+              })
+              .catch(error => {
+                console.log(error);
+                res.status(500).json({
+                  alerts: [
+                    {
+                      success: false,
+                      message: 'Error removing members. Please try again later.'
+                    }
+                  ]
+                });
+              });
+          });
+      }
+    });
+});
+
 module.exports = router;
+
+// database('users');
+// .select('username', 'groups')
+// .whereIn('username', membersToRemove)
+// .then(userRecords => {
+//   userRecords.forEach(userRecord => {
+//     const { username, groups } = userRecord;
+//     const newGroupList = groups.filter(group => group !== groupID);
+//     return database('users')
+//       .update({ groups: newGroupList })
+//       .where({ username: username });
+//   });
+// });
