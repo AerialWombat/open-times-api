@@ -36,10 +36,6 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use('/api/test', (req, res) => {
-  res.status(200).json('Test reached.');
-});
-
 // Routes
 app.use('/api/users', require('./routes/users.js'));
 app.use('/api/groups', require('./routes/groups.js'));
