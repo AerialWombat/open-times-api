@@ -4,6 +4,14 @@ const uuidv4 = require('uuid/v4');
 
 const database = require('../config/database');
 
+// CORS and Bodyparser
+app.use(
+  cors({
+    origin: 'https://opentimes.netlify.com/',
+    credentials: true
+  })
+);
+
 // Route that gets user's group data to display in dashboard view
 router.get('/dashboard', (req, res) => {
   const { username, groups } = req.user;

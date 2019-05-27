@@ -5,6 +5,14 @@ const router = express.Router();
 
 const database = require('../config/database');
 
+// CORS and Bodyparser
+app.use(
+  cors({
+    origin: 'https://opentimes.netlify.com/',
+    credentials: true
+  })
+);
+
 // Register new user
 router.post('/register', (req, res) => {
   const { email, username, password, passwordConfirm } = req.body;
