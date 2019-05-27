@@ -403,7 +403,6 @@ router.put('/remove-members/:groupID', (req, res) => {
 });
 
 router.delete('/:groupID', (req, res) => {
-  console.log('delete group reached');
   const { groupID } = req.params;
   const { username } = req.user;
 
@@ -422,7 +421,6 @@ router.delete('/:groupID', (req, res) => {
           ]
         });
       } else {
-        console.log('is owner');
         database
           .transaction(trx => {
             // Remove all schedules for group
