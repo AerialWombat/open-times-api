@@ -14,11 +14,10 @@ require('./config/passport')(passport);
 
 // CORS and Bodyparser
 app.use(
-  cors()
-  //   {
-  //   origin: 'https://opentimes.netlify.com/',
-  //   credentials: true
-  // }
+  cors({
+    origin: 'https://opentimes.netlify.com/',
+    credentials: true
+  })
 );
 app.use(cookieParser());
 app.use(express.json());
@@ -36,6 +35,10 @@ app.use(
 //Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
+
+app.use('/api/test', (req, res) => {
+  res.status(200).json('Test reached.');
+});
 
 // Routes
 app.use('/api/users', require('./routes/users.js'));
