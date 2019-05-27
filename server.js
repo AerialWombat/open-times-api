@@ -14,10 +14,11 @@ require('./config/passport')(passport);
 
 // CORS and Bodyparser
 app.use(
-  cors({
-    origin: 'https://opentimes.netlify.com/',
-    credentials: true
-  })
+  cors()
+  //   {
+  //   origin: 'https://opentimes.netlify.com/',
+  //   credentials: true
+  // }
 );
 app.use(cookieParser());
 app.use(express.json());
