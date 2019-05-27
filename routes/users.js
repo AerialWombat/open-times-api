@@ -5,8 +5,6 @@ const router = express.Router();
 
 const database = require('../config/database');
 
-app.use(cors());
-
 // Register new user
 router.post('/register', (req, res) => {
   const { email, username, password, passwordConfirm } = req.body;
