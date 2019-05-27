@@ -15,7 +15,7 @@ require('./config/passport')(passport);
 // CORS and Bodyparser
 app.use(
   cors({
-    origin: 'http://localhost:3000',
+    origin: 'https://opentimes.netlify.com/',
     credentials: true
   })
 );
