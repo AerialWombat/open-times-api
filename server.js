@@ -13,12 +13,15 @@ const app = express();
 require('./config/passport')(passport);
 
 // CORS and Bodyparser
-app.use(
-  cors({
-    origin: 'https://opentimes.netlify.com/',
-    credentials: true
-  })
-);
+app.use(cors());
+// app.use(
+//   cors(
+//     {
+//     origin: 'https://opentimes.netlify.com/',
+//     credentials: true
+//   }
+//   )
+// );
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
