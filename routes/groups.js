@@ -457,7 +457,6 @@ router.delete('/:groupID', (req, res) => {
           })
           .then(() => {
             res.status(200).json({
-              members: filteredMembers,
               alerts: [
                 {
                   success: true,
