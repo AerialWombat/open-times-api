@@ -1,6 +1,9 @@
 {
   "name": "open-times-api",
   "version": "1.0.0",
+  "engines": {
+    "node": "14.x"
+  },
   "description": "API server for open times",
   "main": "server.js",
   "scripts": {
