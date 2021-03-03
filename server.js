@@ -15,8 +15,8 @@ require('./config/passport')(passport);
 // CORS and Bodyparser
 app.use(
   cors({
-    origin: 'https://opentimes.netlify.com',
-    credentials: true
+    origin: 'https://opentimes.netlify.app',
+    credentials: true,
   })
 );
 
@@ -29,7 +29,7 @@ app.use(
   session({
     secret: process.env.SECRET_KEY,
     resave: true,
-    saveUninitialized: true
+    saveUninitialized: true,
   })
 );
 
